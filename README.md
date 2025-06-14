@@ -9,19 +9,19 @@ Docker compose
 ## Project structure
 ```
     youtube-analysis/
+    ├── .venv                   # Virtual environment for Python
     ├── dags/                   # Airflow DAGs for ETL pipeline
-    ├── docker/                 # Docker-related files (Dockerfile, docker-compose.yml)
-    ├── scripts/                # Data processing and utility scripts (PySpark, Python)
     ├── data/                   # Raw and processed data (git ignored)
     │   ├── raw/
     │   └── processed/
+    ├── docker/                 # Docker-related files (Dockerfile, docker-compose.yml)
+    ├── logs/                   # Log files for airflow
+        └── scheduler/          # Scheduler logs
+    ├── scripts/                # Data processing and utility scripts (PySpark, Python)
     ├── notebooks/              # Jupyter notebooks for exploration and analysis
-    ├── configs/                # Configuration files (Airflow, Spark, LocalStack, etc.)
     ├── tests/                  # Unit and integration tests
     ├── README.md
-    ├── requirements.txt        # Python dependencies
-    ├── airflow.cfg             # Airflow configuration (if not using env vars)
-    └── .env                    # Environment variables (Docker, Airflow, etc.)
+    └── requirements.txt        # Python dependencies
 ```
 
 ## Environment Setup
@@ -31,6 +31,16 @@ Docker compose
 Download dataset from [Kaggle](https://www.kaggle.com/datasets/datasnaek/youtube-new)
 
 Extract the .zip file and paste all the files (10 csvs and 10 jsons) into /data/raw
+
+### Create folder /logs/scheduler
+
+Create the folder and provide enough privilege:
+
+```bash
+    mkdir -p ./logs/scheduler
+    sudo chown -R 50000:0 ./logs
+    sudo chmod -R 755 ./logs
+```
  
 ### Set up development environment on Docker (Python, PySpark, Airflow)
 
