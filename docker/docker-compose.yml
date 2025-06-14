@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   postgres:
     image: postgres:17.5-bookworm
@@ -56,7 +55,31 @@ services:
       retries: 5
     restart: always
 
-  # airflow-webserver:
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    container_name: youtube_airflow_web
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
+      - AIRFLOW__CELERY__BROKER_URL=${REDIS_CONN:?}
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${POSTGRES_DB_CONN:?}
+      
+      - AIRFLOW_ADMIN_USERNAME=${AIRFLOW_ADMIN_USERNAME:-admin}
+      - AIRFLOW_ADMIN_FIRSTNAME=${AIRFLOW_ADMIN_FIRSTNAME:-admin}
+      - AIRFLOW_ADMIN_LASTNAME=${AIRFLOW_ADMIN_LASTNAME:-admin}
+      - AIRFLOW_ADMIN_EMAIL=${AIRFLOW_ADMIN_EMAIL:?}
+      - AIRFLOW_ADMIN_PASSWORD=${AIRFLOW_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ../dags:/opt/airflow/dags
+      - ../logs:/opt/airflow/logs
+    entrypoint: ["/entrypoint.sh"]
+    ports:
+      - "8080:8080"
+    restart: always
   # airflow-scheduler:
   # airflow-worker:
   # pyspark-master:
