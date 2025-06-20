@@ -8,20 +8,27 @@ Docker compose
 
 ## Project structure
 ```
-    youtube-analysis/
-    ├── .venv                   # Virtual environment for Python
-    ├── dags/                   # Airflow DAGs for ETL pipeline
-    ├── data/                   # Raw and processed data (git ignored)
-    │   ├── raw/
-    │   └── processed/
-    ├── docker/                 # Docker-related files (Dockerfile, docker-compose.yml)
-    ├── logs/                   # Log files for airflow
-        └── scheduler/          # Scheduler logs
-    ├── scripts/                # Data processing and utility scripts (PySpark, Python)
-    ├── notebooks/              # Jupyter notebooks for exploration and analysis
-    ├── tests/                  # Unit and integration tests
-    ├── README.md
-    └── requirements.txt        # Python dependencies
+youtube-analysis/
+├── config/             # Spark configuration files
+├── dags/               # Airflow DAG definitions
+├── data/               # Raw and processed data storage
+│   ├── processed/
+│   └── raw/
+├── docker/             # Dockerfiles and startup scripts
+│   ├── Dockerfile.airflow
+│   ├── Dockerfile.spark
+│   └── entrypoint.sh
+├── logs/               # Airflow logs
+├── notebooks/          # Jupyter notebooks for data exploration
+├── plugins/            # Custom Airflow plugins (operators, sensors, hooks)
+├── scripts/            # Helper scripts for ETL or S3 upload
+├── spark-apps/         # Spark applications (Python/Scala scripts)
+├── .env                # Environment variable definitions
+├── .env.example        # Template for environment variables
+├── .gitignore
+├── docker-compose.yml  # Container orchestration
+├── README.md
+└── requirements.txt    # Python dependencies
 ```
 
 ## Environment Setup
