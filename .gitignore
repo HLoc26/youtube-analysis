@@ -1,7 +1,8 @@
 # Data folder
-data/
-!data/raw/USvideos.csv
-!data/raw/US_category_id.json
+data/proccesed/*
+data/raw/*
+!data/raw/example.csv
+!data/raw/example.json
 
 # Airflow logs
 logs/
