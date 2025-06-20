@@ -1,5 +1,6 @@
 # Data folder
 data/proccesed/*
+!data/proccesed/README.md
 data/raw/*
 !data/raw/example.csv
 !data/raw/example.json
