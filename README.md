@@ -47,9 +47,9 @@ Create the folder and provide enough privilege:
 - [x] postgreSQL
 - [x] redis
 - [x] localstack
-- [ ] airflow-webserver
-- [ ] airflow-scheduler
-- [ ] airflow-worker
+- [x] airflow-webserver
+- [x] airflow-scheduler
+- [x] airflow-worker
 - [ ] pyspark-master
 - [ ] pyspark-worker
 
