@@ -2,9 +2,9 @@
 
 ## Requirements
 
-Python 3.10
-Docker
-Docker compose
+- Python 3.10
+- Docker
+- Docker compose
 
 ## Project structure
 ```
