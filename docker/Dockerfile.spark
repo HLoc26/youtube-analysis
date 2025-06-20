@@ -1,0 +1,16 @@
+FROM bitnami/spark:4.0.0
+
+USER root
+
+# Install additional packages for S3
+RUN apt-get update && apt-get install -y curl wget && apt-get clean
+
+# Download AWS SDK and Hadoop AWS JARs for S3 connectivity
+RUN wget https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar -P /opt/bitnami/spark/jars/ && \
+    wget https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.367/aws-java-sdk-bundle-1.12.367.jar -P /opt/bitnami/spark/jars/
+
+
+# Copy Spark configuration
+COPY config/spark-defaults.conf /opt/bitnami/spark/conf/spark-defaults.conf
+
+USER 1001

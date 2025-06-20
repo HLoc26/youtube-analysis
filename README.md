@@ -50,8 +50,8 @@ Create the folder and provide enough privilege:
 - [x] airflow-webserver
 - [x] airflow-scheduler
 - [x] airflow-worker
-- [ ] pyspark-master
-- [ ] pyspark-worker
+- [x] pyspark-master
+- [x] pyspark-worker
 
 ---
 
