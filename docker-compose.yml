@@ -59,6 +59,7 @@ services:
       context: .
       dockerfile: dockerfiles/Dockerfile.airflow
     container_name: youtube_airflow_web
+    command: webserver
     depends_on:
       - postgres
       - redis
@@ -66,7 +67,7 @@ services:
       - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
       - AIRFLOW__CELERY__BROKER_URL=${REDIS_CONN:?}
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${POSTGRES_DB_CONN:?}
-      - AIRFLOW__CELERY__RESULT_BACKEND=${POSTGRES_DB_CONN:?}
+      - AIRFLOW__CELERY__RESULT_BACKEND=${RESULT_BACKEND:?}
       - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-test}
       - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW_WEBSERVER_SECRET_KEY:-test}
       - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
@@ -90,6 +91,7 @@ services:
       - ./data:/opt/airflow/data
       - ./scripts:/opt/airflow/scripts
       - ./config:/opt/airflow/config
+      - ./jobs:/opt/airflow/jobs
     entrypoint: ["/entrypoint.sh"]
     ports:
       - "8080:8080"
@@ -110,7 +112,7 @@ services:
     environment:
       - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${POSTGRES_DB_CONN:?}
-      - AIRFLOW__CELERY__RESULT_BACKEND=${POSTGRES_DB_CONN:?}
+      - AIRFLOW__CELERY__RESULT_BACKEND=${RESULT_BACKEND:?}
       - AIRFLOW__CELERY__BROKER_URL=${REDIS_CONN:?}
       - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-test}
 
@@ -126,6 +128,7 @@ services:
       - ./data:/opt/airflow/data
       - ./scripts:/opt/airflow/scripts
       - ./config:/opt/airflow/config
+      - ./jobs:/opt/airflow/jobs
     restart: always
 
   airflow-worker:
@@ -144,7 +147,7 @@ services:
     environment:
       - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=${POSTGRES_DB_CONN:?}
-      - AIRFLOW__CELERY__RESULT_BACKEND=${POSTGRES_DB_CONN:?}
+      - AIRFLOW__CELERY__RESULT_BACKEND=${RESULT_BACKEND:?}
       - AIRFLOW__CELERY__BROKER_URL=${REDIS_CONN:?}
       - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-test}
 
@@ -159,6 +162,7 @@ services:
       - ./data:/opt/airflow/data
       - ./scripts:/opt/airflow/scripts
       - ./config:/opt/airflow/config
+      - ./jobs:/opt/airflow/jobs
     restart: always
   spark-master:
     build:
