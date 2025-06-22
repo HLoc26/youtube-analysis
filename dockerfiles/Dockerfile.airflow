@@ -2,10 +2,10 @@ FROM apache/airflow:2.10.5-python3.9
 
 USER root
 
-RUN apt-get update && apt-get install -y gcc g++ openjdk-17-jdk-headless curl && apt-get clean
+RUN apt-get update && apt-get install -y gcc g++ openjdk-17-jdk-headless curl procps && apt-get clean
 
-# Set JAVA home
-ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+# Set JAVA home 
+ENV JAVA_HOME=/usr/lib/jvm/java-1.17.0-openjdk-amd64
 
 RUN chown -R airflow: /opt/airflow
 
