@@ -22,9 +22,14 @@ if [ "$AIRFLOW__CORE__EXECUTOR" = "CeleryExecutor" ]; then
 fi
 
 # Initialize airflow metadata database
-airflow db upgrade
-
 airflow db migrate
+
+airflow connections delete spark_cluster || true
+
+airflow connections add spark_cluster \
+  --conn-type spark \
+  --conn-host 'spark://spark-master:7077' \
+  --conn-extra '{"deploy-mode": "client"}'
 
 # Create admin user for airflow
 airflow users create \
@@ -36,4 +41,4 @@ airflow users create \
     --password "${AIRFLOW_ADMIN_PASSWORD:-admin}" || true
 
 # Execute
-exec airflow webserver
+exec airflow "$@"
