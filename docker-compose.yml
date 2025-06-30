@@ -84,6 +84,10 @@ services:
       - AIRFLOW_ADMIN_LASTNAME=${AIRFLOW_ADMIN_LASTNAME:-admin}
       - AIRFLOW_ADMIN_EMAIL=${AIRFLOW_ADMIN_EMAIL:?}
       - AIRFLOW_ADMIN_PASSWORD=${AIRFLOW_ADMIN_PASSWORD:-admin}
+
+      - RAW_BUCKET=${RAW_BUCKET:-youtube-trending-raw}  # Raw dataset storage
+      - PROCESSED_BUCKET=${PROCESSED_BUCKET:-youtube-trending-processed}  # Processed data
+      - ANALYTICS_BUCKET=${ANALYTICS_BUCKET:-youtube-trending-analytics}  # Analytics results
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
@@ -116,10 +120,16 @@ services:
       - AIRFLOW__CELERY__BROKER_URL=${REDIS_CONN:?}
       - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-test}
 
+      # S3 LocalStack
       - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:?}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:?}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:?}
       - S3_ENDPOINT_URL=${S3_ENDPOINT_URL:-http://localstack:4566}
+
+      # Bucket names
+      - RAW_BUCKET=${RAW_BUCKET:-youtube-trending-raw}  # Raw dataset storage
+      - PROCESSED_BUCKET=${PROCESSED_BUCKET:-youtube-trending-processed}  # Processed data
+      - ANALYTICS_BUCKET=${ANALYTICS_BUCKET:-youtube-trending-analytics}  # Analytics results
 
     volumes:
       - ./dags:/opt/airflow/dags
@@ -151,10 +161,17 @@ services:
       - AIRFLOW__CELERY__BROKER_URL=${REDIS_CONN:?}
       - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-test}
 
+      # S3 LocalStack
       - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:?}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:?}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:?}
       - S3_ENDPOINT_URL=${S3_ENDPOINT_URL:-http://localstack:4566}
+
+      # Bucket names
+      - RAW_BUCKET=${RAW_BUCKET:-youtube-trending-raw}  # Raw dataset storage
+      - PROCESSED_BUCKET=${PROCESSED_BUCKET:-youtube-trending-processed}  # Processed data
+      - ANALYTICS_BUCKET=${ANALYTICS_BUCKET:-youtube-trending-analytics}  # Analytics results
+
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
@@ -212,11 +229,42 @@ services:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:?}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:?}
       - S3_ENDPOINT_URL=${S3_ENDPOINT_URL:-http://localstack:4566}
+
+      # Bucket names
+      - RAW_BUCKET=${RAW_BUCKET:-youtube-trending-raw}  # Raw dataset storage
+      - PROCESSED_BUCKET=${PROCESSED_BUCKET:-youtube-trending-processed}  # Processed data
+      - ANALYTICS_BUCKET=${ANALYTICS_BUCKET:-youtube-trending-analytics}  # Analytics results
     volumes:
       - ./spark-apps:/opt/spark-apps
       - ./data:/opt/spark-data
     restart: always
 
+  # Jupyter Notebook for Analysis
+  jupyter:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile.jupyter
+    container_name: youtube_jupyter
+    ports:
+      - "8888:8888"
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - JUPYTER_TOKEN=youtube123
+      # LocalStack Configuration
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:?}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:?}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:?}
+      - S3_ENDPOINT_URL=${S3_ENDPOINT_URL:-http://localstack:4566}
+      # Bucket names
+      - RAW_BUCKET=${RAW_BUCKET:-youtube-trending-raw}  # Raw dataset storage
+      - PROCESSED_BUCKET=${PROCESSED_BUCKET:-youtube-trending-processed}  # Processed data
+      - ANALYTICS_BUCKET=${ANALYTICS_BUCKET:-youtube-trending-analytics}  # Analytics results
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - ./data:/home/jovyan/data
+    depends_on:
+      - localstack
+    restart: always
 
 volumes:
   postgres_db_volume:

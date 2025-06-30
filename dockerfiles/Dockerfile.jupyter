@@ -1,0 +1,16 @@
+FROM jupyter/pyspark-notebook:latest
+
+USER root
+
+# Cài đặt thư viện cần thiết
+RUN pip install boto3 pandas matplotlib seaborn plotly mypy_boto3_s3
+
+# Thêm Hadoop AWS để hỗ trợ kết nối S3
+RUN curl -O https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar && \
+    mv hadoop-aws-3.3.4.jar $SPARK_HOME/jars/
+
+# Nếu cần thêm AWS SDK (dùng với Hadoop AWS)
+RUN curl -O https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.367/aws-java-sdk-bundle-1.12.367.jar && \
+    mv aws-java-sdk-bundle-1.12.367.jar $SPARK_HOME/jars/
+
+USER $NB_UID
