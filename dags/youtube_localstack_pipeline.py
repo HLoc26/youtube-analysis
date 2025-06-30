@@ -1,10 +1,12 @@
 from datetime import datetime, timedelta
 from typing import Any
+from venv import create
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from mypy_boto3_s3 import S3Client
 import pandas as pd
 import boto3
+import json
 
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 
@@ -22,9 +24,9 @@ AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION")
 
 # Bucket names
-RAW_BUCKET = "youtube-trending-raw"  # Raw dataset storage
-PROCESSED_BUCKET = "youtube-trending-processed"  # Processed data
-ANALYTICS_BUCKET = "youtube-trending-analytics"  # Analytics results
+RAW_BUCKET = os.getenv("RAW_BUCKET")  # Raw dataset storage
+PROCESSED_BUCKET = os.getenv("PROCESSED_BUCKET")  # Processed data
+ANALYTICS_BUCKET = os.getenv("ANALYTICS_BUCKET")  # Analytics results
 
 # DAG Configuration
 default_args: dict[str, Any] = {
@@ -74,6 +76,7 @@ def initialize_localstack(**context):
 
         for bucket in buckets:
             try:
+                logger.info(f"Creating bucket: {bucket}")
                 s3_client.create_bucket(Bucket=bucket)
                 logger.info(f"Created bucket: {bucket}")
             except Exception as e:
@@ -104,33 +107,50 @@ def upload_raw_data(**context):
         dataset_path = "/opt/airflow/data/raw"
         countries = ["CA", "DE", "FR", "GB", "IN", "JP", "KR", "MX", "RU", "US"]
 
-        upload_count = 0
+        data_upload_count = 0
+        category_upload_count = 0
         file_info = {}
 
         for country in countries:
-            file_name = f"{country}videos.csv"
-            local_path = os.path.join(dataset_path, file_name)
+            data_file_name = f"{country}videos.csv"
+            data_file_path = os.path.join(dataset_path, data_file_name)
 
-            if os.path.exists(local_path):
+            category_file_name = f"{country}_category_id.json"
+            category_file_path = os.path.join(dataset_path, category_file_name)
+
+            if os.path.exists(data_file_path) and os.path.exists(category_file_path):
                 # Upload to S3
-                s3_key = f"raw-data/country={country}/{file_name}"
-                s3_client.upload_file(local_path, RAW_BUCKET, s3_key)
 
-                # Get file size
-                file_size = os.path.getsize(local_path)
+                ## Upload data file
+                data_s3_key = f"raw-data/country={country}/{data_file_name}"
+                s3_client.upload_file(data_file_path, RAW_BUCKET, data_s3_key)
+                ## Get file size
+                data_file_size = os.path.getsize(data_file_path)
+                data_upload_count += 1
+                logger.info(f"Uploaded {data_file_name} to s3://{RAW_BUCKET}/{data_s3_key}")
+
+                ## Upload category file
+                category_s3_key = f"category/country={country}/{category_file_name}"
+                s3_client.upload_file(category_file_path, RAW_BUCKET, category_s3_key)
+                ## Get file size
+                category_file_size = os.path.getsize(category_file_path)
+                category_upload_count += 1
+                logger.info(f"Uploaded {category_file_name} to s3://{RAW_BUCKET}/{category_s3_key}")
+
+                # Save info
                 file_info[country] = {
-                    "file_name": file_name,
-                    "s3_key": s3_key,
-                    "file_size_mb": round(file_size / (1024 * 1024), 2),
+                    "data_file_name": data_file_name,
+                    "data_s3_key": data_s3_key,
+                    "data_file_size_mb": round(data_file_size / (1024 * 1024), 2),
+                    "category_file_name": category_file_name,
+                    "category_s3_key": category_s3_key,
+                    "category_file_size_mb": round(category_file_size / (1024 * 1024), 2),
                 }
-
-                upload_count += 1
-                logger.info(f"Uploaded {file_name} to s3://{RAW_BUCKET}/{s3_key}")
             else:
-                logger.warning(f"File not found: {local_path}")
+                logger.warning(f"File not found: {data_file_path}")
 
         summary = {
-            "file_uploaded": upload_count,
+            "file_uploaded": data_upload_count + category_upload_count,
             "total_countries": len(countries),
             "upload_details": file_info,
             "bucket": RAW_BUCKET,
@@ -242,6 +262,8 @@ def validate_s3_data(**context):
                         if invalid_values:
                             type_issues[col] = f"Invalid boolean values: {list(invalid_values)}"
 
+                logger.info(df)
+
                 # Data quality checks
                 quality_checks = {
                     "duplicate_video_ids": df["video_id"].duplicated().sum(),
@@ -306,6 +328,82 @@ def validate_s3_data(**context):
         raise
 
 
+def validate_s3_json(**context):
+    try:
+        s3_client = create_localstack_s3_client()
+        response = s3_client.list_objects_v2(Bucket=RAW_BUCKET, Prefix="category/")
+        if "Contents" not in response:
+            raise ValueError(f"No files found in raw data bucket: {RAW_BUCKET}")
+
+        validation_result = {}
+        data_quality_issues = []
+        total_files = 0
+        total_size = 0
+
+        for obj in response["Contents"]:
+            s3_key = obj["Key"]
+            file_size = obj["Size"]
+
+            if "country=" in s3_key:
+                country = s3_key.split("country=")[1].split("/")[0]
+                temp_file = f"/tmp/{country}_category.json"
+                s3_client.download_file(RAW_BUCKET, s3_key, temp_file)
+
+                try:
+                    with open(temp_file, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                except json.JSONDecodeError as e:
+                    data_quality_issues.append(f"{country}: Invalid JSON - {str(e)}")
+                    continue
+
+                if "items" not in data or not isinstance(data["items"], list):
+                    data_quality_issues.append(f"{country}: Missing or invalid 'items'")
+                    continue
+
+                validation_result[country] = {
+                    "missing_fields": [],
+                    "kind_valid": True,
+                    "total_items": len(data["items"]),
+                }
+
+                for item in data["items"]:
+                    # Validate ID
+                    item_id = item.get("id")
+                    if not isinstance(item_id, str) or not item_id.isdecimal():
+                        validation_result[country]["missing_fields"].append("id")
+                        data_quality_issues.append(f"{country}: Missing or invalid id")
+
+                    # Validate kind
+                    kind = item.get("kind")
+                    if kind != "youtube#videoCategory":
+                        validation_result[country]["kind_valid"] = False
+                        data_quality_issues.append(f"{country}: Invalid kind value: {kind}")
+
+                    # Validate snippet.title
+                    snippet = item.get("snippet", {})
+                    if not isinstance(snippet, dict) or "title" not in snippet:
+                        validation_result[country]["missing_fields"].append("snippet.title")
+                        data_quality_issues.append(f"{country}: Missing snippet.title")
+
+                os.remove(temp_file)
+                total_files += 1
+                total_size += file_size
+
+        summary = {
+            "total_files_validated": total_files,
+            "total_size_mb": round(total_size / (1024 * 1024), 2),
+            "category_quality_issues": data_quality_issues,
+            "validation_detail": validation_result,
+        }
+
+        logger.info(f"Validation summary: {summary}")
+        return summary
+
+    except Exception as e:
+        logger.error(f"Category validation failed: {str(e)}")
+        raise
+
+
 # Define Airflow tasks
 
 init_task = PythonOperator(
@@ -321,8 +419,14 @@ upload_task = PythonOperator(
 )
 
 validate_task = PythonOperator(
-    task_id="validate_s3_data",
+    task_id="validate_s3_csv",
     python_callable=validate_s3_data,
+    dag=dag,
+)
+
+validate_json_task = PythonOperator(
+    task_id="validate_s3_json",
+    python_callable=validate_s3_json,
     dag=dag,
 )
 
@@ -348,4 +452,10 @@ analytics_task = SparkSubmitOperator(
 
 # Task dependencies
 
-init_task >> upload_task >> validate_task >> process_task >> analytics_task
+init_task >> upload_task
+
+upload_task >> validate_task
+upload_task >> validate_json_task
+
+[validate_task, validate_json_task] >> process_task
+process_task >> analytics_task
