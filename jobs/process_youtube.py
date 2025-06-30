@@ -1,8 +1,7 @@
-# /jobs/process_youtube.py
 import os
 import logging
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, lit, to_date, when, count, avg, sum, desc, min, max, regexp_replace, trim, coalesce
+from pyspark.sql.functions import col, lit, to_date, when, count, avg, sum, desc, min, max, regexp_replace, trim, coalesce, explode
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, LongType, DoubleType
 from pyspark.sql.dataframe import DataFrame
 
@@ -48,6 +47,63 @@ def define_youtube_schema() -> StructType:
             StructField("description", StringType(), True),
         ]
     )
+
+
+def define_category_schema() -> StructType:
+    """Define consistent schema for category mapping"""
+    return StructType([StructField("category_id", IntegerType(), False), StructField("category_title", StringType(), False)])
+
+
+def load_category_mapping(spark: SparkSession, raw_bucket: str, countries: list) -> DataFrame:
+    """Load and combine category mappings from all countries"""
+    category_dfs = []
+    category_schema = define_category_schema()
+
+    for country in countries:
+        category_json_path = f"s3a://{raw_bucket}/category/country={country}/{country}_category_id.json"
+        try:
+            # Read JSON with error handling
+            raw_json = spark.read.option("multiline", "true").json(category_json_path)
+
+            # Check if 'items' field exists
+            if "items" not in raw_json.columns:
+                logger.warning(f"No 'items' field found in category JSON for {country}")
+                continue
+
+            # Extract category data
+            items_df = raw_json.select(explode("items").alias("item"))
+
+            # Validate required fields exist
+            category_df = items_df.select(col("item.id").cast("int").alias("category_id"), col("item.snippet.title").alias("category_title")).filter(
+                col("category_id").isNotNull() & col("category_title").isNotNull() & (col("category_id") > 0) & (col("category_title") != "")
+            )
+
+            if category_df.count() > 0:
+                category_dfs.append(category_df)
+                logger.info(f"Loaded {category_df.count()} categories for {country}")
+            else:
+                logger.warning(f"No valid categories found for {country}")
+
+        except Exception as e:
+            logger.warning(f"Could not load category JSON for {country}: {e}")
+            continue
+
+    # Combine all category DataFrames
+    if not category_dfs:
+        logger.warning("No category data loaded from any country")
+        # Return empty DataFrame with correct schema
+        return spark.createDataFrame([], category_schema)
+
+    # Union all category DataFrames and remove duplicates
+    combined_category_df = category_dfs[0]
+    for df in category_dfs[1:]:
+        combined_category_df = combined_category_df.union(df)
+
+    # Remove duplicates and keep the first occurrence
+    combined_category_df = combined_category_df.dropDuplicates(["category_id"])
+
+    logger.info(f"Combined category mapping: {combined_category_df.count()} unique categories")
+    return combined_category_df
 
 
 def clean_and_cast_data(df: DataFrame) -> DataFrame:
@@ -132,7 +188,6 @@ def main():
 
         # Read data from LocalStack S3
         countries = ["CA", "DE", "FR", "GB", "IN", "JP", "KR", "MX", "RU", "US"]
-
         all_data: list[DataFrame] = []
 
         for country in countries:
@@ -149,6 +204,9 @@ def main():
 
         if not all_data:
             raise ValueError("No data could be loaded from S3")
+
+        # Load category mapping using improved function
+        category_mapping = load_category_mapping(spark, RAW_BUCKET, countries)
 
         # Union all DataFrames
         combined_df = all_data[0]
@@ -182,6 +240,15 @@ def main():
             .withColumn("like_ratio", when((col("likes") + col("dislikes")) > 0, (col("likes").cast(DoubleType()) / (col("likes") + col("dislikes")).cast(DoubleType())) * 100).otherwise(0.0))
         )
 
+        # Join with category mapping if available
+        if category_mapping.count() > 0:
+            cleaned_df = cleaned_df.join(category_mapping, on="category_id", how="left")
+            logger.info("Successfully joined category titles with main dataset")
+        else:
+            # Add null category_title column if no mapping available
+            cleaned_df = cleaned_df.withColumn("category_title", lit(None).cast(StringType()))
+            logger.warning("No category mapping available, added null category_title column")
+
         # Cache cleaned data
         cleaned_df.cache()
 
@@ -199,7 +266,7 @@ def main():
 
         # 1. Category analysis
         category_analysis = (
-            cleaned_df.groupBy("country", "category_id")
+            cleaned_df.groupBy("country", "category_id", "category_title")
             .agg(
                 count("video_id").alias("video_count"),
                 avg("views").alias("avg_views"),
@@ -253,6 +320,9 @@ def main():
             max("trending_date_parsed").alias("end_date"),
         ).collect()[0]
 
+        # Get category mapping stats
+        category_stats = {"total_categories_mapped": category_mapping.count(), "videos_with_category_title": cleaned_df.filter(col("category_title").isNotNull()).count()}
+
         # Cleanup
         spark.stop()
 
@@ -260,6 +330,7 @@ def main():
             "total_videos_processed": total_videos,
             "unique_channels": unique_channels,
             "unique_categories": unique_categories,
+            "category_mapping_stats": category_stats,
             "date_range": {"start": str(date_range["start_date"]), "end": str(date_range["end_date"])},
             "countries_processed": countries,
             "output_bucket": PROCESSED_BUCKET,

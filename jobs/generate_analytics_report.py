@@ -1,4 +1,3 @@
-# /logs/generate_analytics_report.py
 from datetime import datetime
 from mypy_boto3_s3 import S3Client
 import boto3
@@ -65,7 +64,7 @@ def main():
 
         category_df = spark.read.parquet(f"{base_path}/category_analysis")
         channel_df = spark.read.parquet(f"{base_path}/channel_analysis")
-        daily_df = spark.read.parquet(f"{base_path}/daily_trends")
+        # daily_df = spark.read.parquet(f"{base_path}/daily_trends")
 
         # Generate insight
         insights = {}
@@ -77,6 +76,7 @@ def main():
             {
                 "country": row["country"],
                 "category_id": row["category_id"],
+                "category_title": row["category_title"],
                 "avg_views": float(row["avg_views"]),
                 "video_count": int(row["video_count"]),
             }
@@ -90,7 +90,7 @@ def main():
             {
                 "channel": row["channel_title"],
                 "country": row["country"],
-                "avg_views": float(row["avg_views"]),
+                "avg_views": float(row["avg_views"] or 0),
                 "trending_count": int(row["trending_count"]),
             }
             for row in top_channels
