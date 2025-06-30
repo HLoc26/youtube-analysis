@@ -4,6 +4,8 @@
 
 This project provides a complete data pipeline for analyzing YouTube trending videos across multiple countries. It leverages Apache Airflow for orchestration, Apache Spark for distributed data processing, and LocalStack to emulate AWS S3 locally for development and testing. The pipeline extracts, validates, processes, and analyzes YouTube trending data, producing analytics and insights.
 
+For visualization, please check [youtube_analysis.ipynb](./notebooks//youtube_analysis.ipynb)
+
 ### Key Features
 
 - **Automated ETL Pipeline**: Orchestrated with Airflow, from raw data ingestion to analytics report generation.
