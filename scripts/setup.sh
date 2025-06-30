@@ -106,9 +106,9 @@ until curl -f http://localhost:4566/_localstack/health > /dev/null 2>&1; do
 done
 echo "LocalStack is ready."
 
-# Initialize LocalStack S3 buckets and upload data
-echo "Initializing LocalStack S3 with init_localstack.py..."
-python scripts/init_localstack.py
+# # Initialize LocalStack S3 buckets and upload data
+# echo "Initializing LocalStack S3 with init_localstack.py..."
+# python scripts/init_localstack.py
 
 # Check status of all services
 echo "Checking status of all services..."
@@ -120,6 +120,7 @@ echo "Access the following services:"
 echo "  - Airflow Web Interface: http://localhost:8080"
 echo "  - Spark Master UI: http://localhost:9090"
 echo "  - LocalStack S3 Endpoint: http://localhost:4566"
+echo "  - JupyterLab (Data Visualization): http://localhost:8888"
 echo "Useful commands:"
 echo "  - View all container logs: docker-compose logs -f"
 echo "  - Stop all services: docker-compose down"
