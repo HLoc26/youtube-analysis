@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 from typing import Any
-from venv import create
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from mypy_boto3_s3 import S3Client
@@ -440,6 +439,16 @@ process_task = SparkSubmitOperator(
     dag=dag,
 )
 
+export_task = SparkSubmitOperator(
+    task_id="export_readable",
+    name="youtube-data-export",
+    application="/opt/airflow/jobs/data_export.py",
+    conn_id="spark_cluster",
+    packages="org.apache.hadoop:hadoop-aws:3.3.1,com.amazonaws:aws-java-sdk-bundle:1.11.1026",
+    verbose=True,
+    dag=dag,
+)
+
 analytics_task = SparkSubmitOperator(
     task_id="generate_analytics_report",
     name="youtube-analytics-report",
@@ -458,4 +467,4 @@ upload_task >> validate_task
 upload_task >> validate_json_task
 
 [validate_task, validate_json_task] >> process_task
-process_task >> analytics_task
+process_task >> export_task >> analytics_task
